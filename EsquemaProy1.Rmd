@@ -1,0 +1,159 @@
+---
+title: "GASTOS NO DEDUCIBLES"
+author: "Analytics 1"
+date: "30 de abril de 2018"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#  I. ANALISIS DEL PROBLEMA
+
+### 1.1 DETERMINACION DE LOS OBJETIVOS:
+
+####1.1.1 Objetivos del Negocio
+
+####1.1.2 Criterios de exito del Negocio
+
+### 1.2 VALORACION DE LA SITUACION:
+
+####1.2.1 Supuestos
+####1.2.2 Restricciones
+####1.2.3 Riesgos
+####1.2.4 Terminologia
+
+### 1.3 OBJETIVOS DATA MINING:
+
+####1.3.1 Criterios de exito
+####1.3.2 Riesgos
+
+### 1.4 PLAN DEL PROYECTO:
+####1.4.1 Cronograma
+
+## II. ANALISIS DE LOS DATOS
+### 2.1 BASES DE DATOS UTILIZADAS:
+
+####2.1.1 Ficha Nacional
+Base de datos del registro de contribuyentes registrados en la SUNAT. Las variables usadas de esta base de datos son:
+
++ **ruc:** Registro Unico del Contribuyente
++ **razon_social:** Razon social del Contribuyente
++ **cod_act_princ:** Codigo de la actividad economica principal
++ **act_principal:** Actividad economica principal
++ **condicion:** Condicion del contribuyente (Habido, No habido, No hallado, etc.)
++ **estado:** Estado del contribuyente (Activo, Baja definitiva, Baja de oficio, etc.)
++ **tipo_emp:** Tipo de empresa del contribuyente (Asociaci?n, Colegios profesionales, etc.)
++ **tamano:** Tama?o del contribuyente (Principal, Mediano, Resto)
++ **cond_domicilio:** Condici?n del domicilio (Propio, Alquilado, Cesi?n de uso, etc.)
++ **ubigeo:** C?digo del ubigeo del distrito del domicio del contribuyente
+
+####2.1.2 CPE Factura
+Base de datos de los registros de Comprobante de pago electr?nico de tipo Factura de la SUNAT del periodo de Octubre 2017.
+
++ **NUM_RUC:** Registro Unico del Contribuyente del emisor del CPE
++ **NUM_DOCIDENTI:** Registro Unico del Contribuyente del receptor del CPE
++ **COD_TIPOCOMP:** C?digo del tipo de CEP
++ **MTO_IMPCPE:** Importe de pago total registrado en el CPE
++ **MTO_IGVCPE:** Impuesto General a las Ventas (IGV) registrado en el CPE
++ **FEC_EMICPE:** Fecha de emisi?n del CPE
+
+####2.1.3 Maestro CIIU
+Base de datos con los niveles de Clasficaci?n Industrial Internacional Uniforme de la versi?n 3.1 de las Naciones Unidas.
+
++ **COD1:** Considera los 02 primeros digitos para agrupar el segundo nivel de los codigos CIIU. 
++ **DESCRIP1:** Corresponde a la descripcion del agrupador de segundo nivel de los codigos CIIU.
++ **COD2:** Considera los 03 primeros digitos para agrupar el tercer nivel de los codigos CIIU.
++ **DESCRIP2:** Corresponde a la descripcion del agrupador de tercer nivel de los codigos CIIU.
++ **CATEGO_OBJETIVO:** Clasificacion de las categorias objetivo con mayor riesgo de agrupar actividades con gastos no deducibles. (0 menor riesgo, 1 riesgo intermedio, 2 riesgo intermedio plus, 3 mayor riesgo)
+
+
+
+
+### 2.2 ANALISIS DESCRIPTIVO POR RUBRO:
+### 2.3 EXPLORACION DE DATOS:
+### 2.4 VERIFICACION DE CALIDAD DE DATOS:
+
+##III. PREPARACION DE LOS DATOS
+### 3.1 SELECCION DE DATOS: (Dataset, Inclusion, Exclusion)
+### 3.2 LIMPIEZA DE DATOS:
+### 3.3 ESTRUCTURACION DE DATOS: (Atributos)
+### 3.4 INTEGRACION DE DATOS:
+
+
+##IV. MODELADO
+### 4.1 SELECCION DE TECNICA DE MODELADO
+El trabajo se realizó las librerias de xgboost (Friedman) "Greedy Function Approximation: A Gradient Boosting Machine" 
+Ahora que hemos introducido los elementos del aprendizaje supervisado, comencemos con árboles reales. Para empezar, primero aprendamos sobre el modelo de xgboost: conjuntos de árboles. El modelo de conjunto de árbol es un conjunto de árboles de clasificación y regresión (CART). Aquí hay un ejemplo simple de un CARRITO que clasifica si a alguien le gustarán los juegos de computadora.
+
+CARRO
+
+Clasificamos a los miembros de una familia en diferentes hojas y les asignamos el puntaje en la hoja correspondiente. Un CART es un poco diferente de los árboles de decisión, donde la hoja solo contiene valores de decisión. En CART, se asocia un puntaje real con cada una de las hojas, lo que nos da interpretaciones más ricas que van más allá de la clasificación. Esto también facilita el paso de optimización unificada, como veremos en una parte posterior de este tutorial.
+
+XGBoost es la abreviatura de "Extreme Gradient Boosting", donde el término "Gradient Boosting" se propone en el documento Greedy Function Approximation: A Gradient Boosting Machine, de Friedman. XGBoost se basa en este modelo original. Este es un tutorial sobre árboles con gradiente mejorado, y la mayoría del contenido se basa en estas diapositivas por parte del autor de xgboost.
+
+El GBM (árboles impulsados) ha existido desde hace un tiempo, y hay muchos materiales sobre el tema. Este tutorial intenta explicar los árboles impulsados de una manera autónoma y basada en principios utilizando los elementos del aprendizaje supervisado. Creemos que esta explicación es más clara, más formal y motiva la variante utilizada en xgboost.
+
+Elementos del aprendizaje supervisado
+XGBoost se utiliza para problemas de aprendizaje supervisado, donde usamos los datos de entrenamiento (con múltiples funciones) \ (x_i \) para predecir una variable de destino \ (y_i \). Antes de sumergirnos en los árboles, comencemos por revisar los elementos básicos en el aprendizaje supervisado.
+
+Modelo y parámetros
+El modelo en aprendizaje supervisado usualmente se refiere a la estructura matemática de cómo hacer que la predicción \ (y_i \) sea dada \ (x_i \). Por ejemplo, un modelo común es un modelo lineal, donde la predicción viene dada por \ (\ hat {y} _i = \ sum_j \ theta_j x_ {ij} \), una combinación lineal de características de entrada ponderadas. El valor de predicción puede tener diferentes interpretaciones, según la tarea, es decir, regresión o clasificación. Por ejemplo, puede transformarse logísticamente para obtener la probabilidad de una clase positiva en la regresión logística, y también se puede usar como puntaje de clasificación cuando queremos clasificar los resultados.
+
+Los parámetros son la parte no determinada que debemos aprender de los datos. En problemas de regresión lineal, los parámetros son los coeficientes \ (\ theta \). Usualmente usaremos \ (\ theta \) para denotar los parámetros (hay muchos parámetros en un modelo, nuestra definición aquí es descuidada).
+
+Función objetivo: Pérdida de entrenamiento + Regularización
+Según diferentes interpretaciones de \ (y_i \) podemos tener diferentes problemas, como regresión, clasificación, ordenamiento, etc. Necesitamos encontrar una manera de encontrar los mejores parámetros dados los datos de entrenamiento. Para hacerlo, necesitamos definir una función llamada objetivo, para medir el rendimiento del modelo dado un cierto conjunto de parámetros.
+
+Un hecho muy importante sobre las funciones objetivas es que siempre deben contener dos partes: pérdida de entrenamiento y regularización.
+
+\ [\ text {obj} (\ theta) = L (\ theta) + \ Omega (\ theta) \]
+donde \ (L \) es la función de pérdida de entrenamiento, y \ (\ Omega \) es el término de regularización. La pérdida de entrenamiento mide cuán predictivo es nuestro modelo en los datos de entrenamiento. Por ejemplo, una pérdida de entrenamiento comúnmente utilizada es un error cuadrático medio.
+
+\ [L (\ theta) = \ sum_i (y_i- \ hat {y} _i) ^ 2 \]
+Otra función de pérdida comúnmente utilizada es la pérdida logística para la regresión logística
+
+\ [L (\ theta) = \ sum_i [y_i \ ln (1 + e ^ {- \ hat {y} _i}) + (1-y_i) \ ln (1 + e ^ {\ hat {y} _i} )] \]
+El término de regularización es lo que la gente generalmente olvida agregar. El término de regularización controla la complejidad del modelo, lo que nos ayuda a evitar el sobreajuste. Esto suena un poco abstracto, así que consideremos el siguiente problema en la siguiente imagen. Se le pide que ajuste visualmente una función de paso dados los puntos de datos de entrada en la esquina superior izquierda de la imagen. ¿Qué solución entre las tres crees que es la mejor opción?
+
+Función de paso
+
+La respuesta correcta está marcada en rojo. Por favor, considere si esto parece ser razonable para usted. El principio general es que queremos un modelo simple y predictivo. La compensación entre los dos también se conoce como compensación de sesgo-varianza en el aprendizaje automático.
+
+¿Por qué introducir el principio general?
+Los elementos presentados anteriormente forman los elementos básicos del aprendizaje supervisado, y son naturalmente los componentes básicos de los kits de herramientas de aprendizaje automático. Por ejemplo, debería poder describir las diferencias y el commo
+### 4.2 PLAN DE PRUEBAS
+### 4.3 CONSTRUCCION DEL MODELO: (Parametros)
+### 4.4 EVALUACION DEL MODELO:
+####4.4.1 Resultados
+####4.4.2 Revision de parametros
+
+
+##V. EVALUACION DEL MODELO
+
+##VI. IMPLEMENTACION DEL MODELO
+
+##VII. DASHBOARD
+
+#PREGUNTAS DEL RETO:
+
+1.?Cu?les son los posibles contribuyentes que utilizan el gasto no deducible como gastos personales o familiares en la determinaci?n del impuesto a la renta?
+
+2. ?Qu? gastos personales o familiares pueden ser utilizados como Gastos no Deducibles?
+
+3. ?Se puede identificar y catalogar el universo de los gastos personales no deducibles utilizados para evadir impuestos por tipo de declarante?
+
+4. ?Cu?l es la repercusi?n en la recaudaci?n de la deuda tributaria en los gastos personales no deducibles?
+
+5. ?Se puede identificar el universo de contribuyentes con este tipo de comportamiento?
+
+6. ?Cu?les son las caracter?sticas de los gastos personales no deducibles?
+
+7. 
+
+
+
+
+
+
